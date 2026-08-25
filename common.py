@@ -54,6 +54,23 @@ def get_export_rates():
     return fetch_export_rates()
 
 
+def get_export_rates_with_fallback(rates):
+    """Returns (fx_rows, stale). Same fallback pattern as get_gjepc_rate_with_fallback:
+    dgft.gov.in also blocks some cloud hosts' networks, so fall back to the last
+    successfully cached list instead of a hard error."""
+    try:
+        fx_rows = get_export_rates()
+        rates["last_known_export_rates"] = fx_rows
+        rates["last_known_export_rates_time"] = dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        save_rates(rates)
+        return fx_rows, False
+    except DgftScrapeError:
+        cached = rates.get("last_known_export_rates")
+        if cached:
+            return cached, True
+        raise
+
+
 def get_base_gold_rate(rates):
     """Returns (rate_per_gram, source_label), expressed at rates['gold_purity_reference'] fineness.
     Falls back to last-known rate on scrape failure."""
@@ -142,10 +159,19 @@ def render_calculator(rates, base_rate, source, key_prefix, purity_note="", curr
         if currency_mode == "dgft":
             with st.expander("Export price in other currencies (DGFT customs rates)", expanded=False):
                 try:
-                    fx_rows = get_export_rates()
+                    fx_rows, fx_stale = get_export_rates_with_fallback(rates)
                 except DgftScrapeError as exc:
-                    st.warning(f"Could not fetch DGFT export rates right now: {exc}")
+                    st.warning(
+                        f"Could not fetch DGFT export rates right now, and no cached rates are "
+                        f"available yet: {exc}"
+                    )
                 else:
+                    if fx_stale:
+                        st.warning(
+                            "Live fetch from dgft.gov.in failed (likely blocked from this server's "
+                            "network) — showing the last successfully fetched rates instead. These "
+                            "may not be current."
+                        )
                     eff_date = fx_rows[0]["effective_date"] if fx_rows else "?"
                     table = {"Currency": [], "Current Rate (₹)": [], "Amount": []}
                     for r in fx_rows:
@@ -159,8 +185,9 @@ def render_calculator(rates, base_rate, source, key_prefix, purity_note="", curr
                     st.table(table)
 
                     website = gold_source_website(source)
+                    cached_note = " (cached)" if fx_stale else ""
                     st.caption(
-                        f"Currency rate source: dgft.gov.in (export rates effective {eff_date})  \n"
+                        f"Currency rate source: dgft.gov.in (export rates effective {eff_date}{cached_note})  \n"
                         f"Gold rate source: {website} — ₹{base_rate:,.2f} / gram"
                     )
 

@@ -3,14 +3,15 @@ import json
 import os
 
 DATA_PATH = os.path.join(os.path.dirname(__file__), "data", "rates.json")
-SEED_PATH = os.path.join(os.path.dirname(__file__), "gjepc_seed.json")
+GJEPC_SEED_PATH = os.path.join(os.path.dirname(__file__), "gjepc_seed.json")
+DGFT_SEED_PATH = os.path.join(os.path.dirname(__file__), "dgft_seed.json")
 
 
-def _load_gjepc_seed():
-    """A committed (non-secret) snapshot of the last known GJEPC rate, used as the initial
-    fallback on a fresh deploy where the live fetch may be blocked before it ever succeeds once."""
+def _load_seed(path):
+    """A committed (non-secret) snapshot used as the initial fallback on a fresh deploy,
+    for when the live fetch may be blocked (e.g. by network/IP) before it ever succeeds once."""
     try:
-        with open(SEED_PATH, "r", encoding="utf-8") as f:
+        with open(path, "r", encoding="utf-8") as f:
             return json.load(f)
     except (OSError, json.JSONDecodeError):
         return None
@@ -31,9 +32,12 @@ DEFAULTS = {
     "manual_gold_rate_per_gram": 0.0,
     "last_known_gold_rate": None,
     "last_known_gold_rate_time": None,
-    "last_known_gjepc": None,  # filled from gjepc_seed.json below if present, then kept fresh on each successful live fetch
+    "last_known_gjepc": None,  # filled from a seed file below if present, then kept fresh on each successful live fetch
+    "last_known_export_rates": None,
+    "last_known_export_rates_time": None,
 }
-DEFAULTS["last_known_gjepc"] = _load_gjepc_seed()
+DEFAULTS["last_known_gjepc"] = _load_seed(GJEPC_SEED_PATH)
+DEFAULTS["last_known_export_rates"] = _load_seed(DGFT_SEED_PATH)
 
 
 def load_rates():

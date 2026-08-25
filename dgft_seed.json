@@ -1,0 +1,178 @@
+[
+  {
+    "code": "AED",
+    "name": "UAE Dirham",
+    "units": 1,
+    "import_rate": 26.85,
+    "export_rate": 25.3,
+    "effective_date": "2026-08-21"
+  },
+  {
+    "code": "AUD",
+    "name": "Australian Dollar",
+    "units": 1,
+    "import_rate": 69.55,
+    "export_rate": 66.55,
+    "effective_date": "2026-08-21"
+  },
+  {
+    "code": "BHD",
+    "name": "Bahraini Dinar",
+    "units": 1,
+    "import_rate": 270.75,
+    "export_rate": 240.7,
+    "effective_date": "2026-08-21"
+  },
+  {
+    "code": "CAD",
+    "name": "Canadian Dollar",
+    "units": 1,
+    "import_rate": 70.45,
+    "export_rate": 68.15,
+    "effective_date": "2026-08-21"
+  },
+  {
+    "code": "CHF",
+    "name": "Swiss Franc",
+    "units": 1,
+    "import_rate": 122.25,
+    "export_rate": 117.05,
+    "effective_date": "2026-08-21"
+  },
+  {
+    "code": "CNY",
+    "name": "Chinese Yuan",
+    "units": 1,
+    "import_rate": 14.45,
+    "export_rate": 14.0,
+    "effective_date": "2026-08-21"
+  },
+  {
+    "code": "DKK",
+    "name": "Danish Kroner",
+    "units": 1,
+    "import_rate": 15.15,
+    "export_rate": 14.75,
+    "effective_date": "2026-08-21"
+  },
+  {
+    "code": "EUR",
+    "name": "EURO",
+    "units": 1,
+    "import_rate": 113.6,
+    "export_rate": 109.8,
+    "effective_date": "2026-08-21"
+  },
+  {
+    "code": "GBP",
+    "name": "Pound Sterling",
+    "units": 1,
+    "import_rate": 132.25,
+    "export_rate": 128.15,
+    "effective_date": "2026-08-21"
+  },
+  {
+    "code": "HKD",
+    "name": "Hong Kong Dollar",
+    "units": 1,
+    "import_rate": 12.35,
+    "export_rate": 12.05,
+    "effective_date": "2026-08-21"
+  },
+  {
+    "code": "JPY",
+    "name": "Japanese Yen",
+    "units": 100,
+    "import_rate": 61.3,
+    "export_rate": 59.45,
+    "effective_date": "2026-08-21"
+  },
+  {
+    "code": "KRW",
+    "name": "Korean Won",
+    "units": 100,
+    "import_rate": 7.05,
+    "export_rate": 6.65,
+    "effective_date": "2026-08-21"
+  },
+  {
+    "code": "KWD",
+    "name": "Kuwaiti Dinar",
+    "units": 1,
+    "import_rate": 320.0,
+    "export_rate": 300.95,
+    "effective_date": "2026-08-21"
+  },
+  {
+    "code": "NOK",
+    "name": "Norwegian Kroner",
+    "units": 1,
+    "import_rate": 10.4,
+    "export_rate": 10.15,
+    "effective_date": "2026-08-21"
+  },
+  {
+    "code": "NZD",
+    "name": "New Zealand Dollar",
+    "units": 1,
+    "import_rate": 58.3,
+    "export_rate": 55.55,
+    "effective_date": "2026-08-21"
+  },
+  {
+    "code": "QAR",
+    "name": "Qatari Riyal",
+    "units": 1,
+    "import_rate": 28.15,
+    "export_rate": 24.75,
+    "effective_date": "2026-08-21"
+  },
+  {
+    "code": "SAR",
+    "name": "Saudi Arabian Riyal",
+    "units": 1,
+    "import_rate": 27.05,
+    "export_rate": 24.15,
+    "effective_date": "2026-08-21"
+  },
+  {
+    "code": "SEK",
+    "name": "Swedish Kroner",
+    "units": 1,
+    "import_rate": 10.25,
+    "export_rate": 10.0,
+    "effective_date": "2026-08-21"
+  },
+  {
+    "code": "SGD",
+    "name": "Singapore Dollar",
+    "units": 1,
+    "import_rate": 76.5,
+    "export_rate": 73.95,
+    "effective_date": "2026-08-21"
+  },
+  {
+    "code": "TRY",
+    "name": "Turkish Lira",
+    "units": 1,
+    "import_rate": 2.05,
+    "export_rate": 1.95,
+    "effective_date": "2026-08-21"
+  },
+  {
+    "code": "USD",
+    "name": "US Dollars",
+    "units": 1,
+    "import_rate": 96.5,
+    "export_rate": 94.8,
+    "effective_date": "2026-08-21"
+  },
+  {
+    "code": "ZAR",
+    "name": "South African Rand",
+    "units": 1,
+    "import_rate": 6.1,
+    "export_rate": 5.75,
+    "effective_date": "2026-08-21"
+  }
+]
