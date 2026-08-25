@@ -8,9 +8,10 @@ st.set_page_config(page_title="Export Rate Calculator", layout="centered")
 
 st.title("Export Rate Calculator — GJEPC Notional Rate")
 st.caption(
-    "Always uses today's GJEPC DGJEPS notional rate circular (gjepc.org/gold-rates.php) "
-    "for both the gold rate and the USD/EUR conversion — independent of the gold source "
-    "picked on the main Price Calculator / Admin page."
+    "Gold rate is always from today's GJEPC DGJEPS notional rate circular "
+    "(gjepc.org/gold-rates.php), independent of the gold source picked on the main "
+    "Price Calculator / Admin page. Currency conversion is from DGFT's export rates "
+    "(dgft.gov.in) — same source as the main calculator."
 )
 
 rates = load_rates()
@@ -44,6 +45,5 @@ render_calculator(
     source,
     key_prefix="export",
     purity_note=purity_note,
-    currency_mode="gjepc",
-    gjepc_fx=data,
+    currency_mode="dgft",
 )
