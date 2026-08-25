@@ -8,18 +8,13 @@ from gjepc_scraper import GjepcScrapeError, fetch_gjepc_gold_rate
 from scraper import ScrapeError, fetch_gold_995_rate_per_gram
 from store import save_rates
 
-GOLD_SOURCE_WEBSITE = {
-    "live": "ronakgold.com",
-    "manual (set by admin)": "manual (admin-set)",
-}
-
-
-def gold_source_website(source_label):
-    if source_label.startswith("GJEPC"):
+def gold_source_website(status):
+    """Website name for a status string returned by get_base_gold_rate."""
+    if status.startswith("manual"):
+        return "manual (admin-set)"
+    if status.startswith("GJEPC"):
         return "gjepc.org"
-    if source_label.startswith("last known"):
-        return f"ronakgold.com ({source_label})"
-    return GOLD_SOURCE_WEBSITE.get(source_label, source_label)
+    return "ronakgold.com"  # "live" or "last known (...)"
 
 
 @st.cache_data(ttl=20, show_spinner=False)
@@ -105,14 +100,18 @@ def get_base_gold_rate(rates):
         return 0.0, "unavailable"
 
 
-def render_calculator(rates, base_rate, source, key_prefix, purity_note="", currency_mode="dgft", gjepc_fx=None):
-    """currency_mode: "dgft" (all DGFT currencies), "gjepc" (USD/EUR from the GJEPC PDF only), or "none"."""
-    if source == "unavailable":
+def render_calculator(rates, base_rate, status, website, key_prefix, rate_display=None, currency_mode="dgft"):
+    """status: short status text, e.g. "live", "manual (set by admin)", "dated 24/08/2026 (cached)".
+    website: source website name shown to the user, e.g. "ronakgold.com".
+    rate_display: how to show the rate itself; defaults to "₹{base_rate:,.2f} / gram".
+    currency_mode: "dgft" (all DGFT currencies) or "none"."""
+    if status == "unavailable":
         st.error("Gold rate is unavailable: live feed failed and no manual/last-known rate is set. Ask admin to set a manual gold rate.")
         return
 
-    badge = {"live": "🟢 live", "manual (set by admin)": "🔧 manual"}.get(source, f"🟡 {source}")
-    st.caption(f"Gold base rate: ₹{base_rate:,.2f} / gram{purity_note} — {badge}")
+    if rate_display is None:
+        rate_display = f"₹{base_rate:,.2f} / gram"
+    st.caption(f"Gold rate: {rate_display} — Source: {website} ({status})")
 
     kt_factors = rates["kt_factors"]
     if not kt_factors:
@@ -184,22 +183,5 @@ def render_calculator(rates, base_rate, source, key_prefix, purity_note="", curr
                         table["Amount"].append(f"{foreign_amount:,.2f}")
                     st.table(table)
 
-                    website = gold_source_website(source)
                     cached_note = " (cached)" if fx_stale else ""
-                    st.caption(
-                        f"Currency rate source: dgft.gov.in (export rates effective {eff_date}{cached_note})  \n"
-                        f"Gold rate source: {website} — ₹{base_rate:,.2f} / gram"
-                    )
-
-        elif currency_mode == "gjepc" and gjepc_fx:
-            st.subheader("Export Price (GJEPC notional rate)")
-            table = {"Currency": [], "Current Rate (₹)": [], "Amount": []}
-            table["Currency"].append("USD — US Dollar")
-            table["Current Rate (₹)"].append(f"{gjepc_fx['usd_inr']:,.4f}")
-            table["Amount"].append(f"{total / gjepc_fx['usd_inr']:,.2f}")
-            if gjepc_fx.get("eur_inr"):
-                table["Currency"].append("EUR — Euro")
-                table["Current Rate (₹)"].append(f"{gjepc_fx['eur_inr']:,.4f}")
-                table["Amount"].append(f"{total / gjepc_fx['eur_inr']:,.2f}")
-            st.table(table)
-            st.caption(f"Source: gjepc.org — DGJEPS notional circular dated {gjepc_fx['effective_date']}")
+                    st.caption(f"Currency rate source: dgft.gov.in (export rates effective {eff_date}{cached_note})")

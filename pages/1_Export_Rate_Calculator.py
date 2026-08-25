@@ -36,14 +36,15 @@ if stale:
 
 purity_ref = rates["gold_purity_reference"]
 base_rate = data["gold_inr_per_gram"] * (purity_ref / data["purity"])
-source = f"GJEPC circular dated {data['effective_date']}" + (" (cached)" if stale else "")
-purity_note = f" (from ${data['gold_usd_per_oz']:,.2f}/oz @ {data['purity']} fine, USD-INR {data['usd_inr']})"
+status = f"dated {data['effective_date']}" + (", cached" if stale else "")
+rate_display = f"${data['gold_usd_per_oz']:,.2f} / troy oz ({data['purity']} fine)"
 
 render_calculator(
     rates,
     base_rate,
-    source,
+    status,
+    "gjepc.org",
     key_prefix="export",
-    purity_note=purity_note,
+    rate_display=rate_display,
     currency_mode="dgft",
 )
