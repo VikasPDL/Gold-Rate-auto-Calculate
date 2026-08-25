@@ -4,7 +4,7 @@ from common import get_gjepc_rate_with_fallback, render_calculator
 from gjepc_scraper import GjepcScrapeError
 from store import load_rates
 
-st.set_page_config(page_title="Export Rate Calculator", layout="centered")
+st.set_page_config(page_title="Export Rate Calculator", layout="wide")
 
 st.title("Export Rate Calculator — GJEPC Notional Rate")
 st.caption(
@@ -47,4 +47,6 @@ render_calculator(
     key_prefix="export",
     rate_display=rate_display,
     currency_mode="dgft",
+    show_inr_breakdown=False,
+    currency_layout="grid",
 )

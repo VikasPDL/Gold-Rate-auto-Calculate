@@ -100,11 +100,23 @@ def get_base_gold_rate(rates):
         return 0.0, "unavailable"
 
 
-def render_calculator(rates, base_rate, status, website, key_prefix, rate_display=None, currency_mode="dgft"):
+def render_calculator(
+    rates,
+    base_rate,
+    status,
+    website,
+    key_prefix,
+    rate_display=None,
+    currency_mode="dgft",
+    show_inr_breakdown=True,
+    currency_layout="list",
+):
     """status: short status text, e.g. "live", "manual (set by admin)", "dated 24/08/2026 (cached)".
     website: source website name shown to the user, e.g. "ronakgold.com".
     rate_display: how to show the rate itself; defaults to "₹{base_rate:,.2f} / gram".
-    currency_mode: "dgft" (all DGFT currencies) or "none"."""
+    currency_mode: "dgft" (all DGFT currencies) or "none".
+    show_inr_breakdown: show the Gold/Diamond/Labour/Total ₹ table.
+    currency_layout: "list" (table) or "grid" (a card per currency)."""
     if status == "unavailable":
         st.error("Gold rate is unavailable: live feed failed and no manual/last-known rate is set. Ask admin to set a manual gold rate.")
         return
@@ -139,24 +151,26 @@ def render_calculator(rates, base_rate, status, website, key_prefix, rate_displa
         labour_cost = gold_grams * rates["labour_rate_per_gram"]
         total = gold_cost + diamond_cost + labour_cost
 
-        st.subheader("Price Breakdown")
-        st.write(f"**{kt} Gold rate:** ₹{gold_rate_kt:,.2f} / gram")
-        st.table(
-            {
-                "Item": ["Gold", "Diamond", "Labour", "Total"],
-                "Amount (₹)": [
-                    f"{gold_cost:,.2f}",
-                    f"{diamond_cost:,.2f}",
-                    f"{labour_cost:,.2f}",
-                    f"{total:,.2f}",
-                ],
-            }
-        )
-
-        st.markdown(f"### Total Jewellery Cost: ₹{total:,.2f}")
+        if show_inr_breakdown:
+            st.subheader("Price Breakdown")
+            st.write(f"**{kt} Gold rate:** ₹{gold_rate_kt:,.2f} / gram")
+            st.table(
+                {
+                    "Item": ["Gold", "Diamond", "Labour", "Total"],
+                    "Amount (₹)": [
+                        f"{gold_cost:,.2f}",
+                        f"{diamond_cost:,.2f}",
+                        f"{labour_cost:,.2f}",
+                        f"{total:,.2f}",
+                    ],
+                }
+            )
+            st.markdown(f"### Total Jewellery Cost: ₹{total:,.2f}")
 
         if currency_mode == "dgft":
-            with st.expander("Export price in other currencies (DGFT customs rates)", expanded=False):
+            container = st.expander("Export price in other currencies (DGFT customs rates)", expanded=False) \
+                if show_inr_breakdown else st.container()
+            with container:
                 try:
                     fx_rows, fx_stale = get_export_rates_with_fallback(rates)
                 except DgftScrapeError as exc:
@@ -172,16 +186,28 @@ def render_calculator(rates, base_rate, status, website, key_prefix, rate_displa
                             "may not be current."
                         )
                     eff_date = fx_rows[0]["effective_date"] if fx_rows else "?"
-                    table = {"Currency": [], "Current Rate (₹)": [], "Amount": []}
-                    for r in fx_rows:
-                        if not r["export_rate"]:
-                            continue
-                        foreign_amount = total / r["export_rate"] * r["units"]
-                        unit_label = f" per {r['units']}" if r["units"] != 1 else ""
-                        table["Currency"].append(f"{r['code']} — {r['name']}")
-                        table["Current Rate (₹)"].append(f"{r['export_rate']:,.2f}{unit_label}")
-                        table["Amount"].append(f"{foreign_amount:,.2f}")
-                    st.table(table)
+                    priced_rows = [r for r in fx_rows if r["export_rate"]]
+
+                    if currency_layout == "grid":
+                        st.subheader("Export Price by Country")
+                        cols_per_row = 4
+                        for i in range(0, len(priced_rows), cols_per_row):
+                            cols = st.columns(cols_per_row)
+                            for col, r in zip(cols, priced_rows[i : i + cols_per_row]):
+                                foreign_amount = total / r["export_rate"] * r["units"]
+                                unit_label = f" / {r['units']}" if r["units"] != 1 else ""
+                                with col:
+                                    st.metric(r["code"], f"{foreign_amount:,.2f}")
+                                    st.caption(f"{r['name']}  \nRate: ₹{r['export_rate']:,.2f}{unit_label}")
+                    else:
+                        table = {"Currency": [], "Current Rate (₹)": [], "Amount": []}
+                        for r in priced_rows:
+                            foreign_amount = total / r["export_rate"] * r["units"]
+                            unit_label = f" per {r['units']}" if r["units"] != 1 else ""
+                            table["Currency"].append(f"{r['code']} — {r['name']}")
+                            table["Current Rate (₹)"].append(f"{r['export_rate']:,.2f}{unit_label}")
+                            table["Amount"].append(f"{foreign_amount:,.2f}")
+                        st.table(table)
 
                     cached_note = " (cached)" if fx_stale else ""
                     st.caption(f"Currency rate source: dgft.gov.in (export rates effective {eff_date}{cached_note})")
