@@ -32,6 +32,23 @@ def get_gjepc_rate():
     return fetch_gjepc_gold_rate()
 
 
+def get_gjepc_rate_with_fallback(rates):
+    """Returns (data, stale). data is fetch_gjepc_gold_rate()'s dict, either fresh or the
+    last successfully cached copy if the live fetch fails (e.g. gjepc.org blocking the
+    server's IP, which happens on some cloud hosts even though it works from a normal
+    network). Raises GjepcScrapeError only if there's no cached copy to fall back to."""
+    try:
+        data = get_gjepc_rate()
+        rates["last_known_gjepc"] = data
+        save_rates(rates)
+        return data, False
+    except GjepcScrapeError:
+        cached = rates.get("last_known_gjepc")
+        if cached:
+            return cached, True
+        raise
+
+
 @st.cache_data(ttl=3600, show_spinner=False)
 def get_export_rates():
     return fetch_export_rates()

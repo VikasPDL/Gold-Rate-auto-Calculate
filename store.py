@@ -3,6 +3,17 @@ import json
 import os
 
 DATA_PATH = os.path.join(os.path.dirname(__file__), "data", "rates.json")
+SEED_PATH = os.path.join(os.path.dirname(__file__), "gjepc_seed.json")
+
+
+def _load_gjepc_seed():
+    """A committed (non-secret) snapshot of the last known GJEPC rate, used as the initial
+    fallback on a fresh deploy where the live fetch may be blocked before it ever succeeds once."""
+    try:
+        with open(SEED_PATH, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except (OSError, json.JSONDecodeError):
+        return None
 
 DEFAULTS = {
     "admin_password": "admin123",
@@ -20,7 +31,9 @@ DEFAULTS = {
     "manual_gold_rate_per_gram": 0.0,
     "last_known_gold_rate": None,
     "last_known_gold_rate_time": None,
+    "last_known_gjepc": None,  # filled from gjepc_seed.json below if present, then kept fresh on each successful live fetch
 }
+DEFAULTS["last_known_gjepc"] = _load_gjepc_seed()
 
 
 def load_rates():
