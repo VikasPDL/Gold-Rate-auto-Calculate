@@ -126,20 +126,11 @@ def render_calculator(rates, base_rate, status, website, key_prefix, rate_displa
         margin_ratio = rates.get("margin_cost_ratio") or 1.0
         final_price = cost / margin_ratio
 
-        st.subheader("Price Breakdown")
-        st.write(f"**{kt} Gold rate:** ₹{gold_rate_kt:,.2f} / gram")
-        st.table(
-            {
-                "Item": ["Gold", "Diamond", "Labour", "Cost"],
-                "Amount (₹)": [
-                    f"{gold_cost:,.2f}",
-                    f"{diamond_cost:,.2f}",
-                    f"{labour_cost:,.2f}",
-                    f"{cost:,.2f}",
-                ],
-            }
-        )
-        st.markdown(f"### Final Jewelry Price: ₹{final_price:,.2f}")
+        col_a, col_b = st.columns(2)
+        with col_a:
+            st.metric("Price", f"₹{cost:,.2f}")
+        with col_b:
+            st.metric(f"Price / {margin_ratio:g}", f"₹{final_price:,.2f}")
 
         st.subheader("Export Price (USD / EUR / GBP)")
         try:
