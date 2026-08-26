@@ -126,10 +126,12 @@ def render_calculator(rates, base_rate, status, website, key_prefix, rate_displa
         margin_ratio = rates.get("margin_cost_ratio") or 1.0
         final_price = cost / margin_ratio
 
-        st.metric("Price", f"₹{cost:,.2f}")
-        st.metric("Export price", f"₹{final_price:,.2f}")
+        st.write("Price")
+        st.markdown(f"**₹{cost:,.2f}**")
+        st.write("Export price")
+        st.markdown(f"**₹{final_price:,.2f}**")
 
-        st.subheader("Export Price (USD / EUR / GBP)")
+        st.write("**Export Price (USD / EUR / GBP)**")
         try:
             fx_rows, fx_stale = get_export_rates_with_fallback(rates)
         except DgftScrapeError as exc:
@@ -151,8 +153,9 @@ def render_calculator(rates, base_rate, status, website, key_prefix, rate_displa
                 foreign_amount = final_price / r["export_rate"] * r["units"]
                 unit_label = f" / {r['units']}" if r["units"] != 1 else ""
                 with col:
-                    st.metric(r["code"], f"{foreign_amount:,.2f}")
-                    st.caption(f"{r['name']}  \nRate: ₹{r['export_rate']:,.2f}{unit_label}")
+                    st.write(r["code"])
+                    st.markdown(f"**{foreign_amount:,.2f}**")
+                    st.caption(f"{r['name']} · Rate ₹{r['export_rate']:,.2f}{unit_label}")
 
             cached_note = " (cached)" if fx_stale else ""
             st.caption(f"Currency rate source: dgft.gov.in (export rates effective {eff_date}{cached_note})")
