@@ -126,11 +126,8 @@ def render_calculator(rates, base_rate, status, website, key_prefix, rate_displa
         margin_ratio = rates.get("margin_cost_ratio") or 1.0
         final_price = cost / margin_ratio
 
-        col_a, col_b = st.columns(2)
-        with col_a:
-            st.metric("Price", f"₹{cost:,.2f}")
-        with col_b:
-            st.metric(f"Price / {margin_ratio:g}", f"₹{final_price:,.2f}")
+        st.metric("Price", f"₹{cost:,.2f}")
+        st.metric("Export price", f"₹{final_price:,.2f}")
 
         st.subheader("Export Price (USD / EUR / GBP)")
         try:
