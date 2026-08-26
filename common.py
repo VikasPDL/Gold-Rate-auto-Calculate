@@ -28,6 +28,7 @@ def get_gjepc_rate():
 
 
 EXPORT_CURRENCIES = ("USD", "EUR", "GBP")
+EXPORT_CURRENCY_NAMES = {"USD": "US Dollars", "EUR": "EURO", "GBP": "Pound Sterling"}
 
 
 @st.cache_data(ttl=3600, show_spinner=False)
@@ -49,6 +50,33 @@ def get_export_rates_with_fallback(rates):
         if cached:
             return cached, True
         raise
+
+
+def get_export_currency_rates(rates):
+    """Returns (priced_rows, source_label, stale) for USD/EUR/GBP. priced_rows is a list of
+    dicts with code/name/export_rate/units/effective_date. source_label is a short string
+    like "dgft.gov.in (effective 2026-08-21)" or "manual (set by admin)"."""
+    if rates.get("export_rate_source") == "manual":
+        manual = rates.get("manual_export_rates") or {}
+        rows = [
+            {
+                "code": code,
+                "name": EXPORT_CURRENCY_NAMES[code],
+                "export_rate": manual.get(code) or None,
+                "units": 1,
+                "effective_date": "manual",
+            }
+            for code in EXPORT_CURRENCIES
+            if manual.get(code)
+        ]
+        return rows, "manual (set by admin)", False
+
+    fx_rows, stale = get_export_rates_with_fallback(rates)
+    priced_rows = [r for r in fx_rows if r["export_rate"] and r["code"] in EXPORT_CURRENCIES]
+    priced_rows.sort(key=lambda r: EXPORT_CURRENCIES.index(r["code"]))
+    eff_date = priced_rows[0]["effective_date"] if priced_rows else "?"
+    cached_note = " (cached)" if stale else ""
+    return priced_rows, f"dgft.gov.in (effective {eff_date}{cached_note})", stale
 
 
 def get_base_gold_rate(rates):
@@ -133,29 +161,27 @@ def render_calculator(rates, base_rate, status, website, key_prefix, rate_displa
 
         st.write("**Export Price (USD / EUR / GBP)**")
         try:
-            fx_rows, fx_stale = get_export_rates_with_fallback(rates)
+            priced_rows, fx_source, fx_stale = get_export_currency_rates(rates)
         except DgftScrapeError as exc:
             st.warning(
                 f"Could not fetch DGFT export rates right now, and no cached rates are available yet: {exc}"
             )
         else:
-            if fx_stale:
-                st.warning(
-                    "Live fetch from dgft.gov.in failed (likely blocked from this server's network) — "
-                    "showing the last successfully fetched rates instead. These may not be current."
-                )
-            eff_date = fx_rows[0]["effective_date"] if fx_rows else "?"
-            priced_rows = [r for r in fx_rows if r["export_rate"] and r["code"] in EXPORT_CURRENCIES]
-            priced_rows.sort(key=lambda r: EXPORT_CURRENCIES.index(r["code"]))
+            if not priced_rows:
+                st.warning("No export currency rates set. Ask admin to set them (DGFT source or manual).")
+            else:
+                if fx_stale:
+                    st.warning(
+                        "Live fetch from dgft.gov.in failed (likely blocked from this server's network) — "
+                        "showing the last successfully fetched rates instead. These may not be current."
+                    )
+                cols = st.columns(len(priced_rows))
+                for col, r in zip(cols, priced_rows):
+                    foreign_amount = final_price / r["export_rate"] * r["units"]
+                    unit_label = f" / {r['units']}" if r["units"] != 1 else ""
+                    with col:
+                        st.write(r["code"])
+                        st.markdown(f"**{foreign_amount:,.2f}**")
+                        st.caption(f"{r['name']} · Rate ₹{r['export_rate']:,.2f}{unit_label}")
 
-            cols = st.columns(len(priced_rows) or 1)
-            for col, r in zip(cols, priced_rows):
-                foreign_amount = final_price / r["export_rate"] * r["units"]
-                unit_label = f" / {r['units']}" if r["units"] != 1 else ""
-                with col:
-                    st.write(r["code"])
-                    st.markdown(f"**{foreign_amount:,.2f}**")
-                    st.caption(f"{r['name']} · Rate ₹{r['export_rate']:,.2f}{unit_label}")
-
-            cached_note = " (cached)" if fx_stale else ""
-            st.caption(f"Currency rate source: dgft.gov.in (export rates effective {eff_date}{cached_note})")
+                st.caption(f"Currency rate source: {fx_source}")

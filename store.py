@@ -36,6 +36,8 @@ DEFAULTS = {
     "last_known_export_rates": None,
     "last_known_export_rates_time": None,
     "margin_cost_ratio": 0.7,  # Final Jewelry Price = cost / margin_cost_ratio (cost = this fraction of the selling price)
+    "export_rate_source": "live",  # "live" (DGFT, with cached fallback) or "manual"
+    "manual_export_rates": {"USD": 0.0, "EUR": 0.0, "GBP": 0.0},  # INR per unit, admin-set
 }
 DEFAULTS["last_known_export_rates"] = _load_seed(DGFT_SEED_PATH)
 

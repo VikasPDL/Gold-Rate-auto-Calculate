@@ -1,5 +1,6 @@
 import streamlit as st
 
+from common import EXPORT_CURRENCY_NAMES
 from store import MIN_LABOUR_RATE_PER_GRAM, load_rates, save_rates
 
 st.set_page_config(page_title="Admin", layout="centered")
@@ -140,6 +141,44 @@ manual_rate = st.number_input(
 if st.button("Save Gold Rate Settings"):
     rates["gold_rate_source"] = selected_source
     rates["manual_gold_rate_per_gram"] = manual_rate
+    save_rates(rates)
+    st.success("Saved.")
+
+st.divider()
+st.subheader("Export Currency Rates (USD / EUR / GBP)")
+st.caption(
+    "dgft.gov.in blocks live requests from this app's hosting network, so it always falls "
+    "back to the last successfully fetched rates. Switch to manual here if you'd rather "
+    "type in today's rates yourself (check dgft.gov.in/CP/?opt=currency-list-exchange-rates)."
+)
+fx_source_options = {
+    "live": "Live/cached (dgft.gov.in)",
+    "manual": "Manual (set below)",
+}
+current_fx_source = rates.get("export_rate_source", "live")
+selected_fx_label = st.selectbox(
+    "Source",
+    list(fx_source_options.values()),
+    index=list(fx_source_options.keys()).index(current_fx_source),
+    key="fx_source_select",
+)
+selected_fx_source = next(k for k, v in fx_source_options.items() if v == selected_fx_label)
+
+manual_export_rates = dict(rates.get("manual_export_rates") or {})
+cols = st.columns(3)
+for col, code in zip(cols, EXPORT_CURRENCY_NAMES):
+    with col:
+        manual_export_rates[code] = st.number_input(
+            f"{code} (₹ per unit)",
+            min_value=0.0,
+            value=float(manual_export_rates.get(code, 0.0)),
+            step=0.01,
+            key=f"manual_fx_{code}",
+        )
+
+if st.button("Save Export Currency Settings"):
+    rates["export_rate_source"] = selected_fx_source
+    rates["manual_export_rates"] = manual_export_rates
     save_rates(rates)
     st.success("Saved.")
 
