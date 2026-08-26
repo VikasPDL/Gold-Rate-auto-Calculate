@@ -1,6 +1,6 @@
 import streamlit as st
 
-from store import load_rates, save_rates
+from store import MIN_LABOUR_RATE_PER_GRAM, load_rates, save_rates
 
 st.set_page_config(page_title="Admin", layout="centered")
 
@@ -34,12 +34,35 @@ diamond_rate = st.number_input(
 
 st.subheader("Labour Rate (locked from calculator pages)")
 labour_rate = st.number_input(
-    "Labour rate (₹ per gram of gold)", min_value=0.0, value=float(rates["labour_rate_per_gram"]), step=10.0
+    "Labour rate (₹ per gram of gold)",
+    min_value=MIN_LABOUR_RATE_PER_GRAM,
+    value=max(float(rates["labour_rate_per_gram"]), MIN_LABOUR_RATE_PER_GRAM),
+    step=10.0,
 )
+st.caption(f"Cannot be set below ₹{MIN_LABOUR_RATE_PER_GRAM:,.0f} / gram.")
 
 if st.button("Save Diamond & Labour Rates"):
     rates["diamond_rate_per_ct"] = diamond_rate
     rates["labour_rate_per_gram"] = labour_rate
+    save_rates(rates)
+    st.success("Saved.")
+
+st.divider()
+st.subheader("Pricing Margin")
+st.caption(
+    "Final Jewelry Price = Cost ÷ this ratio. E.g. 0.70 means cost is 70% of the "
+    "selling price (a ~42.9% markup on cost, i.e. a 30% gross margin on the selling price)."
+)
+margin_ratio = st.number_input(
+    "Cost as a fraction of Selling Price",
+    min_value=0.01,
+    max_value=1.0,
+    value=float(rates.get("margin_cost_ratio", 0.7)),
+    step=0.01,
+    format="%.2f",
+)
+if st.button("Save Margin"):
+    rates["margin_cost_ratio"] = margin_ratio
     save_rates(rates)
     st.success("Saved.")
 
@@ -119,8 +142,6 @@ if st.button("Save Gold Rate Settings"):
     rates["manual_gold_rate_per_gram"] = manual_rate
     save_rates(rates)
     st.success("Saved.")
-
-st.caption("Note: the Export Rate Calculator page always uses the GJEPC rate regardless of this setting.")
 
 st.divider()
 st.subheader("Change Admin Password")

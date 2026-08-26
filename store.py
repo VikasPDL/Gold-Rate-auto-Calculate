@@ -3,7 +3,6 @@ import json
 import os
 
 DATA_PATH = os.path.join(os.path.dirname(__file__), "data", "rates.json")
-GJEPC_SEED_PATH = os.path.join(os.path.dirname(__file__), "gjepc_seed.json")
 DGFT_SEED_PATH = os.path.join(os.path.dirname(__file__), "dgft_seed.json")
 
 
@@ -16,10 +15,12 @@ def _load_seed(path):
     except (OSError, json.JSONDecodeError):
         return None
 
+MIN_LABOUR_RATE_PER_GRAM = 2000.0
+
 DEFAULTS = {
     "admin_password": "admin123",
     "diamond_rate_per_ct": 50000.0,
-    "labour_rate_per_gram": 700.0,
+    "labour_rate_per_gram": MIN_LABOUR_RATE_PER_GRAM,
     "gold_purity_reference": 0.995,
     "kt_factors": {
         "22K": 92.96,
@@ -32,11 +33,10 @@ DEFAULTS = {
     "manual_gold_rate_per_gram": 0.0,
     "last_known_gold_rate": None,
     "last_known_gold_rate_time": None,
-    "last_known_gjepc": None,  # filled from a seed file below if present, then kept fresh on each successful live fetch
     "last_known_export_rates": None,
     "last_known_export_rates_time": None,
+    "margin_cost_ratio": 0.7,  # Final Jewelry Price = cost / margin_cost_ratio (cost = this fraction of the selling price)
 }
-DEFAULTS["last_known_gjepc"] = _load_seed(GJEPC_SEED_PATH)
 DEFAULTS["last_known_export_rates"] = _load_seed(DGFT_SEED_PATH)
 
 
@@ -55,6 +55,12 @@ def load_rates():
         if "gold_rate_source" not in data or changed and data.get("gold_rate_source") == "live":
             data["gold_rate_source"] = "manual" if data["use_manual_gold_rate"] else "live"
         del data["use_manual_gold_rate"]
+        changed = True
+    if "last_known_gjepc" in data:
+        del data["last_known_gjepc"]
+        changed = True
+    if data.get("labour_rate_per_gram", 0) < MIN_LABOUR_RATE_PER_GRAM:
+        data["labour_rate_per_gram"] = MIN_LABOUR_RATE_PER_GRAM
         changed = True
     if changed:
         save_rates(data)

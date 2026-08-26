@@ -27,21 +27,7 @@ def get_gjepc_rate():
     return fetch_gjepc_gold_rate()
 
 
-def get_gjepc_rate_with_fallback(rates):
-    """Returns (data, stale). data is fetch_gjepc_gold_rate()'s dict, either fresh or the
-    last successfully cached copy if the live fetch fails (e.g. gjepc.org blocking the
-    server's IP, which happens on some cloud hosts even though it works from a normal
-    network). Raises GjepcScrapeError only if there's no cached copy to fall back to."""
-    try:
-        data = get_gjepc_rate()
-        rates["last_known_gjepc"] = data
-        save_rates(rates)
-        return data, False
-    except GjepcScrapeError:
-        cached = rates.get("last_known_gjepc")
-        if cached:
-            return cached, True
-        raise
+EXPORT_CURRENCIES = ("USD", "EUR", "GBP")
 
 
 @st.cache_data(ttl=3600, show_spinner=False)
@@ -50,9 +36,8 @@ def get_export_rates():
 
 
 def get_export_rates_with_fallback(rates):
-    """Returns (fx_rows, stale). Same fallback pattern as get_gjepc_rate_with_fallback:
-    dgft.gov.in also blocks some cloud hosts' networks, so fall back to the last
-    successfully cached list instead of a hard error."""
+    """Returns (fx_rows, stale). dgft.gov.in can block requests from some cloud hosts'
+    networks, so fall back to the last successfully cached list instead of a hard error."""
     try:
         fx_rows = get_export_rates()
         rates["last_known_export_rates"] = fx_rows
@@ -100,23 +85,10 @@ def get_base_gold_rate(rates):
         return 0.0, "unavailable"
 
 
-def render_calculator(
-    rates,
-    base_rate,
-    status,
-    website,
-    key_prefix,
-    rate_display=None,
-    currency_mode="dgft",
-    show_inr_breakdown=True,
-    currency_layout="list",
-):
-    """status: short status text, e.g. "live", "manual (set by admin)", "dated 24/08/2026 (cached)".
+def render_calculator(rates, base_rate, status, website, key_prefix, rate_display=None):
+    """status: short status text, e.g. "live", "manual (set by admin)".
     website: source website name shown to the user, e.g. "ronakgold.com".
-    rate_display: how to show the rate itself; defaults to "₹{base_rate:,.2f} / gram".
-    currency_mode: "dgft" (all DGFT currencies) or "none".
-    show_inr_breakdown: show the Gold/Diamond/Labour/Total ₹ table.
-    currency_layout: "list" (table) or "grid" (a card per currency)."""
+    rate_display: how to show the rate itself; defaults to "₹{base_rate:,.2f} / gram"."""
     if status == "unavailable":
         st.error("Gold rate is unavailable: live feed failed and no manual/last-known rate is set. Ask admin to set a manual gold rate.")
         return
@@ -149,65 +121,50 @@ def render_calculator(
         gold_cost = gold_grams * gold_rate_kt
         diamond_cost = diamond_cts * rates["diamond_rate_per_ct"]
         labour_cost = gold_grams * rates["labour_rate_per_gram"]
-        total = gold_cost + diamond_cost + labour_cost
+        cost = gold_cost + diamond_cost + labour_cost
 
-        if show_inr_breakdown:
-            st.subheader("Price Breakdown")
-            st.write(f"**{kt} Gold rate:** ₹{gold_rate_kt:,.2f} / gram")
-            st.table(
-                {
-                    "Item": ["Gold", "Diamond", "Labour", "Total"],
-                    "Amount (₹)": [
-                        f"{gold_cost:,.2f}",
-                        f"{diamond_cost:,.2f}",
-                        f"{labour_cost:,.2f}",
-                        f"{total:,.2f}",
-                    ],
-                }
+        margin_ratio = rates.get("margin_cost_ratio") or 1.0
+        final_price = cost / margin_ratio
+
+        st.subheader("Price Breakdown")
+        st.write(f"**{kt} Gold rate:** ₹{gold_rate_kt:,.2f} / gram")
+        st.table(
+            {
+                "Item": ["Gold", "Diamond", "Labour", "Cost"],
+                "Amount (₹)": [
+                    f"{gold_cost:,.2f}",
+                    f"{diamond_cost:,.2f}",
+                    f"{labour_cost:,.2f}",
+                    f"{cost:,.2f}",
+                ],
+            }
+        )
+        st.markdown(f"### Final Jewelry Price: ₹{final_price:,.2f}")
+
+        st.subheader("Export Price (USD / EUR / GBP)")
+        try:
+            fx_rows, fx_stale = get_export_rates_with_fallback(rates)
+        except DgftScrapeError as exc:
+            st.warning(
+                f"Could not fetch DGFT export rates right now, and no cached rates are available yet: {exc}"
             )
-            st.markdown(f"### Total Jewellery Cost: ₹{total:,.2f}")
+        else:
+            if fx_stale:
+                st.warning(
+                    "Live fetch from dgft.gov.in failed (likely blocked from this server's network) — "
+                    "showing the last successfully fetched rates instead. These may not be current."
+                )
+            eff_date = fx_rows[0]["effective_date"] if fx_rows else "?"
+            priced_rows = [r for r in fx_rows if r["export_rate"] and r["code"] in EXPORT_CURRENCIES]
+            priced_rows.sort(key=lambda r: EXPORT_CURRENCIES.index(r["code"]))
 
-        if currency_mode == "dgft":
-            container = st.expander("Export price in other currencies (DGFT customs rates)", expanded=False) \
-                if show_inr_breakdown else st.container()
-            with container:
-                try:
-                    fx_rows, fx_stale = get_export_rates_with_fallback(rates)
-                except DgftScrapeError as exc:
-                    st.warning(
-                        f"Could not fetch DGFT export rates right now, and no cached rates are "
-                        f"available yet: {exc}"
-                    )
-                else:
-                    if fx_stale:
-                        st.warning(
-                            "Live fetch from dgft.gov.in failed (likely blocked from this server's "
-                            "network) — showing the last successfully fetched rates instead. These "
-                            "may not be current."
-                        )
-                    eff_date = fx_rows[0]["effective_date"] if fx_rows else "?"
-                    priced_rows = [r for r in fx_rows if r["export_rate"]]
+            cols = st.columns(len(priced_rows) or 1)
+            for col, r in zip(cols, priced_rows):
+                foreign_amount = final_price / r["export_rate"] * r["units"]
+                unit_label = f" / {r['units']}" if r["units"] != 1 else ""
+                with col:
+                    st.metric(r["code"], f"{foreign_amount:,.2f}")
+                    st.caption(f"{r['name']}  \nRate: ₹{r['export_rate']:,.2f}{unit_label}")
 
-                    if currency_layout == "grid":
-                        st.subheader("Export Price by Country")
-                        cols_per_row = 4
-                        for i in range(0, len(priced_rows), cols_per_row):
-                            cols = st.columns(cols_per_row)
-                            for col, r in zip(cols, priced_rows[i : i + cols_per_row]):
-                                foreign_amount = total / r["export_rate"] * r["units"]
-                                unit_label = f" / {r['units']}" if r["units"] != 1 else ""
-                                with col:
-                                    st.metric(r["code"], f"{foreign_amount:,.2f}")
-                                    st.caption(f"{r['name']}  \nRate: ₹{r['export_rate']:,.2f}{unit_label}")
-                    else:
-                        table = {"Currency": [], "Current Rate (₹)": [], "Amount": []}
-                        for r in priced_rows:
-                            foreign_amount = total / r["export_rate"] * r["units"]
-                            unit_label = f" per {r['units']}" if r["units"] != 1 else ""
-                            table["Currency"].append(f"{r['code']} — {r['name']}")
-                            table["Current Rate (₹)"].append(f"{r['export_rate']:,.2f}{unit_label}")
-                            table["Amount"].append(f"{foreign_amount:,.2f}")
-                        st.table(table)
-
-                    cached_note = " (cached)" if fx_stale else ""
-                    st.caption(f"Currency rate source: dgft.gov.in (export rates effective {eff_date}{cached_note})")
+            cached_note = " (cached)" if fx_stale else ""
+            st.caption(f"Currency rate source: dgft.gov.in (export rates effective {eff_date}{cached_note})")
