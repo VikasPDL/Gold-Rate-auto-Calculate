@@ -38,6 +38,9 @@ DEFAULTS = {
     "margin_cost_ratio": 0.7,  # Final Jewelry Price = cost / margin_cost_ratio (cost = this fraction of the selling price)
     "export_rate_source": "live",  # "live" (DGFT, with cached fallback) or "manual"
     "manual_export_rates": {"USD": 0.0, "EUR": 0.0, "GBP": 0.0},  # INR per unit, admin-set
+    "silver_rate_per_gram": 1815.0,  # always admin-set, no live scrape
+    "silver_diamond_rate_per_ct": 40000.0,
+    "silver_labour_rate_per_gram": 500.0,
 }
 DEFAULTS["last_known_export_rates"] = _load_seed(DGFT_SEED_PATH)
 

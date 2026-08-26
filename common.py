@@ -113,29 +113,49 @@ def get_base_gold_rate(rates):
         return 0.0, "unavailable"
 
 
-def render_calculator(rates, base_rate, status, website, key_prefix, rate_display=None):
+def render_calculator(
+    rates,
+    base_rate,
+    status,
+    website,
+    key_prefix,
+    diamond_rate,
+    labour_rate,
+    rate_display=None,
+    kt_factors=None,
+    weight_label="Gold weight (grams)",
+    metal_label="Gold",
+):
     """status: short status text, e.g. "live", "manual (set by admin)".
     website: source website name shown to the user, e.g. "ronakgold.com".
-    rate_display: how to show the rate itself; defaults to "₹{base_rate:,.2f} / gram"."""
+    diamond_rate / labour_rate: resolved ₹/ct and ₹/gram numbers to use (caller picks which
+    admin-set rate applies -- gold's or silver's).
+    rate_display: how to show the rate itself; defaults to "₹{base_rate:,.2f} / gram".
+    kt_factors: dict of KT name -> percent; if None, no KT selector is shown and base_rate is
+    used directly as the metal's ₹/gram rate (for silver, which has no karat purity)."""
     if status == "unavailable":
-        st.error("Gold rate is unavailable: live feed failed and no manual/last-known rate is set. Ask admin to set a manual gold rate.")
+        st.error(f"{metal_label} rate is unavailable: live feed failed and no manual/last-known rate is set. Ask admin to set a manual rate.")
         return
 
     if rate_display is None:
         rate_display = f"₹{base_rate:,.2f} / gram"
-    st.caption(f"Gold rate: {rate_display} — Source: {website} ({status})")
+    st.caption(f"{metal_label} rate: {rate_display} — Source: {website} ({status})")
 
-    kt_factors = rates["kt_factors"]
-    if not kt_factors:
+    if kt_factors is not None and not kt_factors:
         st.warning("No karat options configured. Ask admin to add some in the Admin panel.")
         return
 
-    col1, col2 = st.columns(2)
-    with col1:
-        kt = st.selectbox("Karat (KT)", list(kt_factors.keys()), key=f"{key_prefix}_kt")
-    with col2:
-        gold_grams = st.number_input(
-            "Gold weight (grams)", min_value=0.0, step=0.01, format="%.3f", key=f"{key_prefix}_grams"
+    if kt_factors is not None:
+        col1, col2 = st.columns(2)
+        with col1:
+            kt = st.selectbox("Karat (KT)", list(kt_factors.keys()), key=f"{key_prefix}_kt")
+        with col2:
+            metal_grams = st.number_input(
+                weight_label, min_value=0.0, step=0.01, format="%.3f", key=f"{key_prefix}_grams"
+            )
+    else:
+        metal_grams = st.number_input(
+            weight_label, min_value=0.0, step=0.01, format="%.3f", key=f"{key_prefix}_grams"
         )
 
     diamond_cts = st.number_input(
@@ -143,13 +163,16 @@ def render_calculator(rates, base_rate, status, website, key_prefix, rate_displa
     )
 
     if st.button("Calculate", type="primary", key=f"{key_prefix}_calc"):
-        purity_ref = rates["gold_purity_reference"]
-        gold_rate_kt = base_rate * (kt_factors[kt] / 100.0) / purity_ref
+        if kt_factors is not None:
+            purity_ref = rates["gold_purity_reference"]
+            metal_rate = base_rate * (kt_factors[kt] / 100.0) / purity_ref
+        else:
+            metal_rate = base_rate
 
-        gold_cost = gold_grams * gold_rate_kt
-        diamond_cost = diamond_cts * rates["diamond_rate_per_ct"]
-        labour_cost = gold_grams * rates["labour_rate_per_gram"]
-        cost = gold_cost + diamond_cost + labour_cost
+        metal_cost = metal_grams * metal_rate
+        diamond_cost = diamond_cts * diamond_rate
+        labour_cost = metal_grams * labour_rate
+        cost = metal_cost + diamond_cost + labour_cost
 
         margin_ratio = rates.get("margin_cost_ratio") or 1.0
         final_price = cost / margin_ratio

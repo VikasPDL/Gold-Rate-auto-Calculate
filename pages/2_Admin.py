@@ -28,12 +28,10 @@ if st.button("Log out"):
     st.rerun()
 
 st.divider()
-st.subheader("Diamond Rate (locked from calculator pages)")
+st.subheader("Gold — Diamond & Labour Rate (locked from calculator pages)")
 diamond_rate = st.number_input(
     "Diamond rate (₹ per ct)", min_value=0.0, value=float(rates["diamond_rate_per_ct"]), step=100.0
 )
-
-st.subheader("Labour Rate (locked from calculator pages)")
 labour_rate = st.number_input(
     "Labour rate (₹ per gram of gold)",
     min_value=MIN_LABOUR_RATE_PER_GRAM,
@@ -42,9 +40,35 @@ labour_rate = st.number_input(
 )
 st.caption(f"Cannot be set below ₹{MIN_LABOUR_RATE_PER_GRAM:,.0f} / gram.")
 
-if st.button("Save Diamond & Labour Rates"):
+if st.button("Save Gold Diamond & Labour Rates"):
     rates["diamond_rate_per_ct"] = diamond_rate
     rates["labour_rate_per_gram"] = labour_rate
+    save_rates(rates)
+    st.success("Saved.")
+
+st.divider()
+st.subheader("Silver — Rate, Diamond & Labour (locked from calculator pages)")
+silver_rate = st.number_input(
+    "Silver rate (₹ per gram)", min_value=0.0, value=float(rates["silver_rate_per_gram"]), step=1.0
+)
+silver_diamond_rate = st.number_input(
+    "Diamond rate for silver (₹ per ct)",
+    min_value=0.0,
+    value=float(rates["silver_diamond_rate_per_ct"]),
+    step=100.0,
+)
+silver_labour_rate = st.number_input(
+    "Labour rate for silver (₹ per gram)",
+    min_value=0.0,
+    value=float(rates["silver_labour_rate_per_gram"]),
+    step=10.0,
+)
+st.caption("Silver rate is always admin-set — no live scraping for silver.")
+
+if st.button("Save Silver Rates"):
+    rates["silver_rate_per_gram"] = silver_rate
+    rates["silver_diamond_rate_per_ct"] = silver_diamond_rate
+    rates["silver_labour_rate_per_gram"] = silver_labour_rate
     save_rates(rates)
     st.success("Saved.")
 
