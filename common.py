@@ -179,8 +179,6 @@ def render_calculator(
 
         st.write("Price")
         st.markdown(f"**₹{cost:,.2f}**")
-        st.write("Export price")
-        st.markdown(f"**₹{final_price:,.2f}**")
 
         st.write("**Export Price (USD / EUR / GBP)**")
         try:
