@@ -171,23 +171,11 @@ if st.button("Save Gold Rate Settings"):
 st.divider()
 st.subheader("Export Currency Rates (USD / EUR / GBP)")
 st.caption(
-    "dgft.gov.in blocks live requests from this app's hosting network, so it always falls "
-    "back to the last successfully fetched rates. Switch to manual here if you'd rather "
-    "type in today's rates yourself (check dgft.gov.in/CP/?opt=currency-list-exchange-rates)."
+    "dgft.gov.in blocks live requests from this app's hosting network, so these are always "
+    "admin-set. Check today's rates at dgft.gov.in/CP/?opt=currency-list-exchange-rates and "
+    "set them here — this is the default that pre-fills on the calculator page, where it can "
+    "still be edited per-quote if today's rate is different."
 )
-fx_source_options = {
-    "live": "Live/cached (dgft.gov.in)",
-    "manual": "Manual (set below)",
-}
-current_fx_source = rates.get("export_rate_source", "live")
-selected_fx_label = st.selectbox(
-    "Source",
-    list(fx_source_options.values()),
-    index=list(fx_source_options.keys()).index(current_fx_source),
-    key="fx_source_select",
-)
-selected_fx_source = next(k for k, v in fx_source_options.items() if v == selected_fx_label)
-
 manual_export_rates = dict(rates.get("manual_export_rates") or {})
 cols = st.columns(3)
 for col, code in zip(cols, EXPORT_CURRENCY_NAMES):
@@ -200,8 +188,7 @@ for col, code in zip(cols, EXPORT_CURRENCY_NAMES):
             key=f"manual_fx_{code}",
         )
 
-if st.button("Save Export Currency Settings"):
-    rates["export_rate_source"] = selected_fx_source
+if st.button("Save Export Currency Rates"):
     rates["manual_export_rates"] = manual_export_rates
     save_rates(rates)
     st.success("Saved.")

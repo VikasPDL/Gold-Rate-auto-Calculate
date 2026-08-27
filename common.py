@@ -3,7 +3,6 @@ import datetime as dt
 
 import streamlit as st
 
-from dgft_scraper import DgftScrapeError, fetch_export_rates
 from gjepc_scraper import GjepcScrapeError, fetch_gjepc_gold_rate
 from scraper import ScrapeError, fetch_gold_995_rate_per_gram
 from store import save_rates
@@ -29,54 +28,6 @@ def get_gjepc_rate():
 
 EXPORT_CURRENCIES = ("USD", "EUR", "GBP")
 EXPORT_CURRENCY_NAMES = {"USD": "US Dollars", "EUR": "EURO", "GBP": "Pound Sterling"}
-
-
-@st.cache_data(ttl=3600, show_spinner=False)
-def get_export_rates():
-    return fetch_export_rates()
-
-
-def get_export_rates_with_fallback(rates):
-    """Returns (fx_rows, stale). dgft.gov.in can block requests from some cloud hosts'
-    networks, so fall back to the last successfully cached list instead of a hard error."""
-    try:
-        fx_rows = get_export_rates()
-        rates["last_known_export_rates"] = fx_rows
-        rates["last_known_export_rates_time"] = dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        save_rates(rates)
-        return fx_rows, False
-    except DgftScrapeError:
-        cached = rates.get("last_known_export_rates")
-        if cached:
-            return cached, True
-        raise
-
-
-def get_export_currency_rates(rates):
-    """Returns (priced_rows, source_label, stale) for USD/EUR/GBP. priced_rows is a list of
-    dicts with code/name/export_rate/units/effective_date. source_label is a short string
-    like "dgft.gov.in (effective 2026-08-21)" or "manual (set by admin)"."""
-    if rates.get("export_rate_source") == "manual":
-        manual = rates.get("manual_export_rates") or {}
-        rows = [
-            {
-                "code": code,
-                "name": EXPORT_CURRENCY_NAMES[code],
-                "export_rate": manual.get(code) or None,
-                "units": 1,
-                "effective_date": "manual",
-            }
-            for code in EXPORT_CURRENCIES
-            if manual.get(code)
-        ]
-        return rows, "manual (set by admin)", False
-
-    fx_rows, stale = get_export_rates_with_fallback(rates)
-    priced_rows = [r for r in fx_rows if r["export_rate"] and r["code"] in EXPORT_CURRENCIES]
-    priced_rows.sort(key=lambda r: EXPORT_CURRENCIES.index(r["code"]))
-    eff_date = priced_rows[0]["effective_date"] if priced_rows else "?"
-    cached_note = " (cached)" if stale else ""
-    return priced_rows, f"dgft.gov.in (effective {eff_date}{cached_note})", stale
 
 
 def get_base_gold_rate(rates):
@@ -162,47 +113,46 @@ def render_calculator(
         "Diamond weight (cts)", min_value=0.0, step=0.01, format="%.3f", key=f"{key_prefix}_cts"
     )
 
+    calculated_key = f"{key_prefix}_calculated"
     if st.button("Calculate", type="primary", key=f"{key_prefix}_calc"):
-        if kt_factors is not None:
-            purity_ref = rates["gold_purity_reference"]
-            metal_rate = base_rate * (kt_factors[kt] / 100.0) / purity_ref
-        else:
-            metal_rate = base_rate
+        st.session_state[calculated_key] = True
 
-        metal_cost = metal_grams * metal_rate
-        diamond_cost = diamond_cts * diamond_rate
-        labour_cost = metal_grams * labour_rate
-        cost = metal_cost + diamond_cost + labour_cost
+    if not st.session_state.get(calculated_key):
+        return
 
-        margin_ratio = rates.get("margin_cost_ratio") or 1.0
-        final_price = cost / margin_ratio
+    if kt_factors is not None:
+        purity_ref = rates["gold_purity_reference"]
+        metal_rate = base_rate * (kt_factors[kt] / 100.0) / purity_ref
+    else:
+        metal_rate = base_rate
 
-        st.write("Price")
-        st.markdown(f"**₹{cost:,.2f}**")
+    metal_cost = metal_grams * metal_rate
+    diamond_cost = diamond_cts * diamond_rate
+    labour_cost = metal_grams * labour_rate
+    cost = metal_cost + diamond_cost + labour_cost
 
-        st.write("**Export Price (USD / EUR / GBP)**")
-        try:
-            priced_rows, fx_source, fx_stale = get_export_currency_rates(rates)
-        except DgftScrapeError as exc:
-            st.warning(
-                f"Could not fetch DGFT export rates right now, and no cached rates are available yet: {exc}"
+    margin_ratio = rates.get("margin_cost_ratio") or 1.0
+    final_price = cost / margin_ratio
+
+    st.write("Price")
+    st.markdown(f"**₹{cost:,.2f}**")
+
+    st.write("**Export Price (USD / EUR / GBP)**")
+    st.caption("Exchange rate defaults to the last value set in Admin — edit here if today's rate is different.")
+    defaults = rates.get("manual_export_rates") or {}
+    cols = st.columns(len(EXPORT_CURRENCIES))
+    for col, code in zip(cols, EXPORT_CURRENCIES):
+        with col:
+            fx_rate = st.number_input(
+                f"{code} rate (₹)",
+                min_value=0.0,
+                value=float(defaults.get(code) or 0.0),
+                step=0.01,
+                key=f"{key_prefix}_fxrate_{code}",
             )
-        else:
-            if not priced_rows:
-                st.warning("No export currency rates set. Ask admin to set them (DGFT source or manual).")
+            if fx_rate > 0:
+                foreign_amount = final_price / fx_rate
+                st.markdown(f"**{foreign_amount:,.2f}**")
             else:
-                if fx_stale:
-                    st.warning(
-                        "Live fetch from dgft.gov.in failed (likely blocked from this server's network) — "
-                        "showing the last successfully fetched rates instead. These may not be current."
-                    )
-                cols = st.columns(len(priced_rows))
-                for col, r in zip(cols, priced_rows):
-                    foreign_amount = final_price / r["export_rate"] * r["units"]
-                    unit_label = f" / {r['units']}" if r["units"] != 1 else ""
-                    with col:
-                        st.write(r["code"])
-                        st.markdown(f"**{foreign_amount:,.2f}**")
-                        st.caption(f"{r['name']} · Rate ₹{r['export_rate']:,.2f}{unit_label}")
-
-                st.caption(f"Currency rate source: {fx_source}")
+                st.caption("Enter a rate")
+            st.caption(EXPORT_CURRENCY_NAMES[code])

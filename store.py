@@ -7,13 +7,23 @@ DGFT_SEED_PATH = os.path.join(os.path.dirname(__file__), "dgft_seed.json")
 
 
 def _load_seed(path):
-    """A committed (non-secret) snapshot used as the initial fallback on a fresh deploy,
-    for when the live fetch may be blocked (e.g. by network/IP) before it ever succeeds once."""
+    """A committed (non-secret) snapshot, used only to give a fresh install sensible
+    starting numbers instead of blank zeros."""
     try:
         with open(path, "r", encoding="utf-8") as f:
             return json.load(f)
     except (OSError, json.JSONDecodeError):
         return None
+
+
+def _default_manual_export_rates():
+    """dgft.gov.in blocks live requests from the deployed host's network, so export
+    currency rates are always admin-set/editable rather than live-scraped. Seed the
+    starting values from a committed snapshot so a fresh install isn't all zeros."""
+    seed_rows = _load_seed(DGFT_SEED_PATH) or []
+    by_code = {r["code"]: r["export_rate"] for r in seed_rows if r.get("export_rate")}
+    return {"USD": by_code.get("USD", 0.0), "EUR": by_code.get("EUR", 0.0), "GBP": by_code.get("GBP", 0.0)}
+
 
 MIN_LABOUR_RATE_PER_GRAM = 2000.0
 
@@ -33,16 +43,12 @@ DEFAULTS = {
     "manual_gold_rate_per_gram": 0.0,
     "last_known_gold_rate": None,
     "last_known_gold_rate_time": None,
-    "last_known_export_rates": None,
-    "last_known_export_rates_time": None,
     "margin_cost_ratio": 0.7,  # Final Jewelry Price = cost / margin_cost_ratio (cost = this fraction of the selling price)
-    "export_rate_source": "live",  # "live" (DGFT, with cached fallback) or "manual"
-    "manual_export_rates": {"USD": 0.0, "EUR": 0.0, "GBP": 0.0},  # INR per unit, admin-set
+    "manual_export_rates": _default_manual_export_rates(),  # INR per unit -- always admin-set default, editable per-quote on the calculator
     "silver_rate_per_gram": 1815.0,  # always admin-set, no live scrape
     "silver_diamond_rate_per_ct": 40000.0,
     "silver_labour_rate_per_gram": 500.0,
 }
-DEFAULTS["last_known_export_rates"] = _load_seed(DGFT_SEED_PATH)
 
 
 def load_rates():
@@ -61,9 +67,10 @@ def load_rates():
             data["gold_rate_source"] = "manual" if data["use_manual_gold_rate"] else "live"
         del data["use_manual_gold_rate"]
         changed = True
-    if "last_known_gjepc" in data:
-        del data["last_known_gjepc"]
-        changed = True
+    for stale_key in ("last_known_gjepc", "last_known_export_rates", "last_known_export_rates_time", "export_rate_source"):
+        if stale_key in data:
+            del data[stale_key]
+            changed = True
     if data.get("labour_rate_per_gram", 0) < MIN_LABOUR_RATE_PER_GRAM:
         data["labour_rate_per_gram"] = MIN_LABOUR_RATE_PER_GRAM
         changed = True
