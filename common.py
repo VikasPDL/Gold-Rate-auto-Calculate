@@ -138,21 +138,30 @@ def render_calculator(
     st.markdown(f"**₹{cost:,.2f}**")
 
     st.write("**Export Price (USD / EUR / GBP)**")
-    st.caption("Exchange rate defaults to the last value set in Admin — edit here if today's rate is different.")
     defaults = rates.get("manual_export_rates") or {}
+    fx_rates = {}
     cols = st.columns(len(EXPORT_CURRENCIES))
     for col, code in zip(cols, EXPORT_CURRENCIES):
         with col:
-            fx_rate = st.number_input(
+            fx_rates[code] = st.number_input(
                 f"{code} rate (₹)",
                 min_value=0.0,
                 value=float(defaults.get(code) or 0.0),
                 step=0.01,
                 key=f"{key_prefix}_fxrate_{code}",
             )
-            if fx_rate > 0:
-                foreign_amount = final_price / fx_rate
-                st.markdown(f"**{foreign_amount:,.2f}**")
-            else:
-                st.caption("Enter a rate")
-            st.caption(EXPORT_CURRENCY_NAMES[code])
+
+    fx_calculated_key = f"{key_prefix}_fx_calculated"
+    if st.button("Calculate Export Rate", key=f"{key_prefix}_fx_calc"):
+        st.session_state[fx_calculated_key] = True
+
+    if st.session_state.get(fx_calculated_key):
+        cols2 = st.columns(len(EXPORT_CURRENCIES))
+        for col, code in zip(cols2, EXPORT_CURRENCIES):
+            with col:
+                if fx_rates[code] > 0:
+                    foreign_amount = final_price / fx_rates[code]
+                    st.markdown(f"**{foreign_amount:,.2f}**")
+                else:
+                    st.caption("Enter a rate")
+                st.caption(EXPORT_CURRENCY_NAMES[code])
